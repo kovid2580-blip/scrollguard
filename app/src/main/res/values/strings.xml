@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">ScrollGuard</string>
+    <string name="app_tagline">Use apps purposefully. Stop endless scrolling.</string>
+    <string name="accessibility_service_label">ScrollGuard Content Guard</string>
+    <string name="accessibility_service_description">Detects short-form video feeds (such as Instagram Reels, YouTube Shorts, and Facebook Reels) and blocked apps on screen so ScrollGuard can display a focus reminder overlay. Screen text is processed locally in memory and is never uploaded or stored.</string>
+    <string name="notification_channel_focus_name">Focus &amp; Schedule Alerts</string>
+    <string name="notification_channel_focus_desc">Notifications for strict mode focus sessions and schedule transitions.</string>
+</resources>

@@ -1,0 +1,8 @@
+<resources>
+    <color name="indigo_primary">#2E3A8C</color>
+    <color name="indigo_dark">#1B2358</color>
+    <color name="soft_blue">#4C7BF3</color>
+    <color name="emerald_success">#10B981</color>
+    <color name="amber_warning">#F59E0B</color>
+    <color name="neutral_bg">#F8FAFC</color>
+</resources>

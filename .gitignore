@@ -1,0 +1,18 @@
+# Gradle & build outputs
+.gradle/
+build/
+app/build/
+captures/
+.cxx/
+
+# Local & IDE configuration
+local.properties
+*.iml
+.idea/
+.DS_Store
+
+# Signing credentials & keystores (NEVER commit)
+keystore.properties
+*.jks
+*.keystore
+*.p12
