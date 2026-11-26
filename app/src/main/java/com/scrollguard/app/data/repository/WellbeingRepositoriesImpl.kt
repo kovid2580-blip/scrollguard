@@ -41,7 +41,11 @@ class InstalledAppsRepositoryImpl @Inject constructor(
         "com.instagram.android",
         "com.google.android.youtube",
         "com.facebook.katana",
-        "com.facebook.lite"
+        "com.facebook.lite",
+        "com.zhiliaoapp.musically",
+        "com.ss.android.ugc.trill",
+        "com.zhiliaoapp.musically.go",
+        "com.snapchat.android"
     )
 
     override suspend fun getLaunchableApps(): List<InstalledApp> = withContext(Dispatchers.IO) {

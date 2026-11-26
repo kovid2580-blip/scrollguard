@@ -17,7 +17,7 @@ enum class ContentCategory(
     INSTAGRAM_REELS(
         displayName = "Instagram Reels",
         defaultPackage = "com.instagram.android",
-        description = "Blocks Reels tab and Reels player while preserving Feed, Stories, DMs, and Profiles."
+        description = "Suppresses the Reels tab entry point where detectable and interrupts Reels playback while preserving Home, Stories, Posts, Profiles, Search, and DMs."
     ),
     INSTAGRAM_EXPLORE(
         displayName = "Instagram Explore",
@@ -27,12 +27,22 @@ enum class ContentCategory(
     YOUTUBE_SHORTS(
         displayName = "YouTube Shorts",
         defaultPackage = "com.google.android.youtube",
-        description = "Blocks YouTube Shorts player and Shorts tab while keeping regular videos, Search, and Subscriptions."
+        description = "Suppresses the Shorts tab entry point where detectable and interrupts Shorts playback while preserving normal videos, Search, Subscriptions, Playlists, and Comments."
     ),
     FACEBOOK_REELS(
         displayName = "Facebook Reels",
         defaultPackage = "com.facebook.katana",
-        description = "Blocks Facebook Reels surface when identifiable via accessibility nodes."
+        description = "Suppresses detectable Reels navigation and interrupts Facebook Reels while preserving Feed, Groups, Pages, Profiles, and Messenger."
+    ),
+    TIKTOK_SHORT_FORM(
+        displayName = "TikTok Short-Form Feed",
+        defaultPackage = "com.zhiliaoapp.musically",
+        description = "Restricted-mode / full-feed interruption for TikTok short-video browsing. Normal TikTok browsing cannot be reliably separated from short-form feeds."
+    ),
+    SNAPCHAT_SPOTLIGHT(
+        displayName = "Snapchat Spotlight",
+        defaultPackage = "com.snapchat.android",
+        description = "Suppresses detectable Spotlight tab entry points and interrupts Spotlight feeds while preserving Messaging and ordinary Camera functionality."
     ),
     CUSTOM_SHORT_FORM(
         displayName = "Custom Short-Form Rule",

@@ -2,6 +2,7 @@ package com.scrollguard.app.presentation.blocking
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.scrollguard.app.blocking.AdapterUiHealth
 import com.scrollguard.app.blocking.DetectionRuleRepository
 import com.scrollguard.app.data.preferences.ScrollGuardPreferences
 import com.scrollguard.app.domain.model.BlockType
@@ -11,7 +12,10 @@ import com.scrollguard.app.domain.model.DetectionConfig
 import com.scrollguard.app.domain.model.DiagnosticEvent
 import com.scrollguard.app.domain.model.StrictModeState
 import com.scrollguard.app.domain.repository.BlockingRuleRepository
+import com.scrollguard.app.monitoring.AdapterStatusTracker
+import com.scrollguard.app.monitoring.AppAdapterStatus
 import com.scrollguard.app.monitoring.DiagnosticsLogBuffer
+import com.scrollguard.app.monitoring.LiveDiagnosticsSnapshot
 import com.scrollguard.app.security.PinManager
 import com.scrollguard.app.security.PinVerificationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,11 +27,21 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class SelectiveRuleStatusUi(
+    val rule: BlockingRule,
+    val entryPointStatusLabel: String,
+    val detectionStatusLabel: String,
+    val lastResultSummary: String?,
+    val uiNeedsReviewWarning: Boolean
+)
+
 data class SelectiveBlockingUiState(
-    val builtInRules: List<BlockingRule> = emptyList(),
-    val customRules: List<BlockingRule> = emptyList(),
+    val builtInRuleItems: List<SelectiveRuleStatusUi> = emptyList(),
+    val customRuleItems: List<SelectiveRuleStatusUi> = emptyList(),
+    val entryPointSuppressionEnabled: Boolean = true,
     val diagnosticsEnabled: Boolean = false,
     val diagnosticEvents: List<DiagnosticEvent> = emptyList(),
+    val liveDiagnostics: LiveDiagnosticsSnapshot = LiveDiagnosticsSnapshot(),
     val strictLocked: Boolean = false,
     val showPinDialog: Boolean = false,
     val pinError: String? = null
@@ -39,6 +53,7 @@ class SelectiveBlockingViewModel @Inject constructor(
     private val detectionRuleRepository: DetectionRuleRepository,
     private val preferences: ScrollGuardPreferences,
     private val diagnosticsLogBuffer: DiagnosticsLogBuffer,
+    private val adapterStatusTracker: AdapterStatusTracker,
     private val pinManager: PinManager
 ) : ViewModel() {
 
@@ -50,7 +65,10 @@ class SelectiveBlockingViewModel @Inject constructor(
     val uiState: StateFlow<SelectiveBlockingUiState> = combine(
         ruleRepository.observeAllRules(),
         preferences.diagnosticsEnabled,
+        preferences.entryPointSuppressionEnabled,
         diagnosticsLogBuffer.events,
+        adapterStatusTracker.statusByPackage,
+        adapterStatusTracker.liveSnapshot,
         preferences.strictModeState,
         showPinDialog,
         pinError,
@@ -59,19 +77,30 @@ class SelectiveBlockingViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val allRules = values[0] as List<BlockingRule>
         val diagnosticsOn = values[1] as Boolean
+        val entrySuppressionOn = values[2] as Boolean
         @Suppress("UNCHECKED_CAST")
-        val events = values[2] as List<DiagnosticEvent>
-        val strictState = values[3] as StrictModeState
-        val pinVisible = values[4] as Boolean
-        val error = values[5] as String?
-        val unlocked = values[6] as Boolean
+        val events = values[3] as List<DiagnosticEvent>
+        @Suppress("UNCHECKED_CAST")
+        val statusMap = values[4] as Map<String, AppAdapterStatus>
+        val liveSnapshot = values[5] as LiveDiagnosticsSnapshot
+        val strictState = values[6] as StrictModeState
+        val pinVisible = values[7] as Boolean
+        val error = values[8] as String?
+        val unlocked = values[9] as Boolean
 
         val selective = allRules.filter { it.blockType == BlockType.SELECTIVE_CONTENT }
+        val builtIn = selective.filter { it.detectionConfig.isBuiltIn }
+            .map { toStatusUi(it, statusMap[it.packageName], entrySuppressionOn) }
+        val custom = selective.filter { !it.detectionConfig.isBuiltIn }
+            .map { toStatusUi(it, statusMap[it.packageName], entrySuppressionOn) }
+
         SelectiveBlockingUiState(
-            builtInRules = selective.filter { it.detectionConfig.isBuiltIn },
-            customRules = selective.filter { !it.detectionConfig.isBuiltIn },
+            builtInRuleItems = builtIn,
+            customRuleItems = custom,
+            entryPointSuppressionEnabled = entrySuppressionOn,
             diagnosticsEnabled = diagnosticsOn,
             diagnosticEvents = events,
+            liveDiagnostics = liveSnapshot,
             strictLocked = strictState.isSettingsLocked() && !unlocked,
             showPinDialog = pinVisible,
             pinError = error
@@ -82,10 +111,58 @@ class SelectiveBlockingViewModel @Inject constructor(
         initialValue = SelectiveBlockingUiState()
     )
 
+    private fun toStatusUi(
+        rule: BlockingRule,
+        status: AppAdapterStatus?,
+        entrySuppressionOn: Boolean
+    ): SelectiveRuleStatusUi {
+        val supportsTabShield = rule.contentType in setOf(
+            ContentCategory.INSTAGRAM_REELS,
+            ContentCategory.YOUTUBE_SHORTS,
+            ContentCategory.FACEBOOK_REELS,
+            ContentCategory.SNAPCHAT_SPOTLIGHT
+        )
+        val entryLabel = when {
+            !rule.enabled -> "Entry shield inactive (rule off)"
+            !entrySuppressionOn -> "Entry shield disabled (player block active)"
+            status != null && status.activeEntryPointSuppressedCount > 0 ->
+                "Entry shield active (${status.activeEntryPointSuppressedCount} tab covered)"
+            supportsTabShield -> "Nav tab shield ready (shelves use player block)"
+            else -> "Player interruption only (dynamic feed)"
+        }
+
+        val health = status?.uiHealth ?: AdapterUiHealth.HEALTHY
+        val detectionLabel = when {
+            !rule.enabled -> "Filtering disabled"
+            health == AdapterUiHealth.NEEDS_RULE_REVIEW -> "UI may have changed — review rules"
+            health == AdapterUiHealth.LIMITED_VISIBILITY -> "Limited node visibility"
+            else -> "Content detection active"
+        }
+
+        val lastSummary = status?.let {
+            val pct = (it.lastConfidence * 100f).toInt()
+            "Last check: ${it.lastDecision} ($pct%)"
+        }
+
+        return SelectiveRuleStatusUi(
+            rule = rule,
+            entryPointStatusLabel = entryLabel,
+            detectionStatusLabel = detectionLabel,
+            lastResultSummary = lastSummary,
+            uiNeedsReviewWarning = rule.enabled && health != AdapterUiHealth.HEALTHY
+        )
+    }
+
     fun toggleRule(rule: BlockingRule, enabled: Boolean) {
         runProtectedAction {
             ruleRepository.setRuleEnabled(rule.id, enabled)
             detectionRuleRepository.refreshNow()
+        }
+    }
+
+    fun setEntryPointSuppressionEnabled(enabled: Boolean) {
+        runProtectedAction {
+            preferences.setEntryPointSuppressionEnabled(enabled)
         }
     }
 
@@ -143,6 +220,7 @@ class SelectiveBlockingViewModel @Inject constructor(
 
     fun clearDiagnostics() {
         diagnosticsLogBuffer.clear()
+        adapterStatusTracker.clearLiveCounters()
     }
 
     fun verifyPin(pin: String) {

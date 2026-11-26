@@ -64,8 +64,6 @@ class BlockingRuleRepositoryImpl @Inject constructor(
                     category = ContentCategory.INSTAGRAM_REELS,
                     resourceIdKeywords = listOf(
                         "clips_viewer",
-                        "clips_tab",
-                        "reel_viewer",
                         "clips_media",
                         "clips_video_container",
                         "clips_swipe_refresh_container"
@@ -126,7 +124,6 @@ class BlockingRuleRepositoryImpl @Inject constructor(
                         "reel_recycler",
                         "reel_player",
                         "shorts_player",
-                        "pivot_shorts",
                         "reel_progress_bar"
                     ),
                     contentDescriptionKeywords = listOf("Shorts", "Remix", "Subscribe"),
@@ -157,15 +154,59 @@ class BlockingRuleRepositoryImpl @Inject constructor(
                     resourceIdKeywords = listOf(
                         "reels_viewer",
                         "fb_shorts",
-                        "reels_tab",
                         "short_form_video"
                     ),
                     contentDescriptionKeywords = listOf("Reels", "Facebook Reels", "Add a comment"),
                     textKeywords = listOf("Reels"),
-                    exclusionKeywords = listOf("Marketplace", "Groups", "Messages", "Notifications"),
+                    exclusionKeywords = listOf("Marketplace", "Groups", "Pages", "Notifications"),
                     minConfidence = 0.65f,
                     isBuiltIn = true,
-                    compatibilityNote = "Best-effort detection: Facebook uses obfuscated Litho/React views in some versions, so Reels playback is blocked when Reels container cues are exposed."
+                    compatibilityNote = "Best-effort detection: Facebook uses obfuscated Litho/React views in some versions. Preserves Feed, Groups, Pages, Profiles, and Messenger."
+                ),
+                createdAt = now,
+                updatedAt = now
+            ),
+            BlockingRule(
+                packageName = "com.zhiliaoapp.musically",
+                appName = "TikTok",
+                blockType = BlockType.SELECTIVE_CONTENT,
+                contentType = ContentCategory.TIKTOK_SHORT_FORM,
+                enabled = false,
+                detectionConfig = DetectionConfig(
+                    targetPackage = "com.zhiliaoapp.musically",
+                    category = ContentCategory.TIKTOK_SHORT_FORM,
+                    resourceIdKeywords = listOf("feed_pager", "vertical_view_pager"),
+                    contentDescriptionKeywords = listOf("For You", "Following"),
+                    textKeywords = listOf("For You", "Following"),
+                    exclusionKeywords = listOf("Inbox", "Direct messages", "Profile"),
+                    minConfidence = 0.70f,
+                    isBuiltIn = true,
+                    compatibilityNote = "Restricted-mode interruption for TikTok short-video feeds. Because TikTok's primary UI is short-form video, general TikTok browsing cannot be guaranteed; use Full App Blocking for strict restriction."
+                ),
+                createdAt = now,
+                updatedAt = now
+            ),
+            BlockingRule(
+                packageName = "com.snapchat.android",
+                appName = "Snapchat",
+                blockType = BlockType.SELECTIVE_CONTENT,
+                contentType = ContentCategory.SNAPCHAT_SPOTLIGHT,
+                enabled = true,
+                detectionConfig = DetectionConfig(
+                    targetPackage = "com.snapchat.android",
+                    category = ContentCategory.SNAPCHAT_SPOTLIGHT,
+                    resourceIdKeywords = listOf(
+                        "snap_spotlight",
+                        "spotlight_feed",
+                        "spotlight_player",
+                        "spotlight_viewer"
+                    ),
+                    contentDescriptionKeywords = listOf("Spotlight", "Spotlight tab"),
+                    textKeywords = listOf("Spotlight"),
+                    exclusionKeywords = listOf("Take a Snap", "Send a chat", "Chat"),
+                    minConfidence = 0.65f,
+                    isBuiltIn = true,
+                    compatibilityNote = "Best-effort Spotlight tab suppression & player interruption while preserving Camera and Messaging. Pending live device verification on latest Snapchat UI."
                 ),
                 createdAt = now,
                 updatedAt = now

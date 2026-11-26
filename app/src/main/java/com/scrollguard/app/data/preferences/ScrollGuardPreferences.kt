@@ -45,6 +45,7 @@ class ScrollGuardPreferences @Inject constructor(
         val TEMP_UNLOCK_EXPIRES_MS = longPreferencesKey("temp_unlock_expires_ms")
         val BLOCKING_PAUSED = booleanPreferencesKey("blocking_paused")
         val PIN_HASH_PRESENT = booleanPreferencesKey("pin_hash_present")
+        val ENTRY_POINT_SUPPRESSION_ENABLED = booleanPreferencesKey("entry_point_suppression_enabled")
     }
 
     val themeMode: Flow<ThemeMode> = dataStore.data.map { prefs ->
@@ -58,6 +59,9 @@ class ScrollGuardPreferences @Inject constructor(
     val onboardingCompleted: Flow<Boolean> = dataStore.data.map { it[Keys.ONBOARDING_COMPLETED] ?: false }
     val consentAccepted: Flow<Boolean> = dataStore.data.map { it[Keys.CONSENT_ACCEPTED] ?: false }
     val diagnosticsEnabled: Flow<Boolean> = dataStore.data.map { it[Keys.DIAGNOSTICS_ENABLED] ?: false }
+    val entryPointSuppressionEnabled: Flow<Boolean> = dataStore.data.map {
+        it[Keys.ENTRY_POINT_SUPPRESSION_ENABLED] ?: true
+    }
 
     val strictModeState: Flow<StrictModeState> = dataStore.data.map { prefs ->
         val today = LocalDate.now().toString()
@@ -96,6 +100,10 @@ class ScrollGuardPreferences @Inject constructor(
 
     suspend fun setDiagnosticsEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.DIAGNOSTICS_ENABLED] = enabled }
+    }
+
+    suspend fun setEntryPointSuppressionEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.ENTRY_POINT_SUPPRESSION_ENABLED] = enabled }
     }
 
     suspend fun setStrictModeEnabled(enabled: Boolean) {

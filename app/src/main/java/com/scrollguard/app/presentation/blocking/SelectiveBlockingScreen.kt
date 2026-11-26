@@ -17,8 +17,11 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -40,14 +43,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.scrollguard.app.domain.model.BlockingRule
 import com.scrollguard.app.presentation.components.AppIconImage
 import com.scrollguard.app.presentation.components.PinPromptDialog
 import com.scrollguard.app.presentation.components.SectionCard
 import com.scrollguard.app.presentation.components.StatusPill
+import com.scrollguard.app.presentation.theme.AmberContainer
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,7 +84,7 @@ fun SelectiveBlockingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Selective Content Blocking") },
+                title = { Text("Content Filtering") },
                 actions = {
                     if (state.strictLocked) {
                         Icon(
@@ -110,31 +114,59 @@ fun SelectiveBlockingScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Block short-form addictive feeds inside apps while keeping posts, messages, search, and regular videos accessible.",
+                text = "System-Wide Content Filtering suppresses identifiable short-form navigation tabs and interrupts restricted short-video players while keeping core messaging, search, and regular feeds usable.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            state.builtInRules.forEach { rule ->
+            SectionCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Entry-Point Tab Suppression",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Places bounded shields over static Reels/Shorts/Spotlight nav tabs when detectable. Dynamic scrolling shelves are handled by immediate player exit.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = state.entryPointSuppressionEnabled,
+                        onCheckedChange = viewModel::setEntryPointSuppressionEnabled
+                    )
+                }
+            }
+
+            state.builtInRuleItems.forEach { item ->
                 SelectiveRuleCard(
-                    rule = rule,
-                    onToggle = { enabled -> viewModel.toggleRule(rule, enabled) },
+                    item = item,
+                    onToggle = { enabled -> viewModel.toggleRule(item.rule, enabled) },
+                    onOpenDiagnostics = onOpenDiagnostics,
                     onDelete = null
                 )
             }
 
-            if (state.customRules.isNotEmpty()) {
+            if (state.customRuleItems.isNotEmpty()) {
                 Text(
                     text = "Custom Content Rules",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 6.dp)
                 )
-                state.customRules.forEach { rule ->
+                state.customRuleItems.forEach { item ->
                     SelectiveRuleCard(
-                        rule = rule,
-                        onToggle = { enabled -> viewModel.toggleRule(rule, enabled) },
-                        onDelete = { viewModel.deleteCustomRule(rule.id) }
+                        item = item,
+                        onToggle = { enabled -> viewModel.toggleRule(item.rule, enabled) },
+                        onOpenDiagnostics = onOpenDiagnostics,
+                        onDelete = { viewModel.deleteCustomRule(item.rule.id) }
                     )
                 }
             }
@@ -156,10 +188,12 @@ fun SelectiveBlockingScreen(
 
 @Composable
 private fun SelectiveRuleCard(
-    rule: BlockingRule,
+    item: SelectiveRuleStatusUi,
     onToggle: (Boolean) -> Unit,
+    onOpenDiagnostics: () -> Unit,
     onDelete: (() -> Unit)?
 ) {
+    val rule = item.rule
     SectionCard {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
@@ -200,6 +234,61 @@ private fun SelectiveRuleCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            Text(
+                text = "Entry points: ${item.entryPointStatusLabel}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Text(
+                text = "Detection: ${item.detectionStatusLabel}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            item.lastResultSummary?.let { summary ->
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+
+            if (item.uiNeedsReviewWarning) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = AmberContainer)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Warning,
+                                contentDescription = null,
+                                tint = Color(0xFF92400E)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "This app's UI exposed limited nodes; rules may need updating.",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color(0xFF78350F)
+                            )
+                        }
+                        TextButton(onClick = onOpenDiagnostics) {
+                            Text("Inspect")
+                        }
+                    }
+                }
+            }
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

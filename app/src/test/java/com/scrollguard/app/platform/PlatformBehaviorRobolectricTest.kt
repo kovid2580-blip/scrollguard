@@ -9,6 +9,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.scrollguard.app.blocking.BlockDecision
 import com.scrollguard.app.blocking.BlockingOverlayManager
 import com.scrollguard.app.blocking.BlockingReason
+import com.scrollguard.app.blocking.EntryPointOverlayManager
+import com.scrollguard.app.blocking.EntryPointTarget
 import com.scrollguard.app.data.dao.FocusScheduleDao
 import com.scrollguard.app.data.entity.FocusScheduleEntity
 import com.scrollguard.app.data.local.ScrollGuardDatabase
@@ -121,5 +123,20 @@ class PlatformBehaviorRobolectricTest {
         }
         assertFalse(overlayManager.isShowing)
         assertEquals(0, db.blockedAttemptDao().countBetween(0L, Long.MAX_VALUE))
+
+        val entryOverlayManager = EntryPointOverlayManager(context)
+        entryOverlayManager.showOrUpdate(
+            listOf(
+                EntryPointTarget(
+                    category = ContentCategory.INSTAGRAM_REELS,
+                    label = "Reels Tab",
+                    left = 600,
+                    top = 2100,
+                    right = 800,
+                    bottom = 2240
+                )
+            )
+        )
+        assertEquals(0, entryOverlayManager.activeCount)
     }
 }

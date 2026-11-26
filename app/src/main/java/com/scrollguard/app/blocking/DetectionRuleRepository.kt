@@ -49,6 +49,10 @@ class DetectionRuleRepository @Inject constructor(
     var cachedDiagnosticsEnabled: Boolean = false
         private set
 
+    @Volatile
+    var cachedEntryPointSuppressionEnabled: Boolean = true
+        private set
+
     init {
         scope.launch {
             blockingRuleRepository.observeAllRules().collectLatest {
@@ -68,6 +72,11 @@ class DetectionRuleRepository @Inject constructor(
         scope.launch {
             preferences.diagnosticsEnabled.collectLatest {
                 cachedDiagnosticsEnabled = it
+            }
+        }
+        scope.launch {
+            preferences.entryPointSuppressionEnabled.collectLatest {
+                cachedEntryPointSuppressionEnabled = it
             }
         }
         scope.launch {

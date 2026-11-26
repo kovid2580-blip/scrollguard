@@ -41,8 +41,12 @@ data class DiagnosticEvent(
     val timestamp: Long,
     val packageName: String,
     val eventType: String,
+    val screenClassification: String = "Unknown",
     val matchedRule: String,
     val confidence: Float,
     val signals: List<String>,
-    val decision: String
+    val decision: String,
+    val navigationAction: String = "NONE",
+    val sessionState: String = "NORMAL",
+    val cooldownActive: Boolean = false
 )

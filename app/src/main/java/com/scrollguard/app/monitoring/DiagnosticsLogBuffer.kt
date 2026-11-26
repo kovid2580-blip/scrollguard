@@ -23,20 +23,28 @@ class DiagnosticsLogBuffer @Inject constructor() {
     fun record(
         packageName: String,
         eventType: String,
+        screenClassification: String = "Unknown",
         matchedRule: String,
         confidence: Float,
         signals: List<String>,
-        decision: String
+        decision: String,
+        navigationAction: String = "NONE",
+        sessionState: String = "NORMAL",
+        cooldownActive: Boolean = false
     ) {
         val entry = DiagnosticEvent(
             id = idGenerator.getAndIncrement(),
             timestamp = System.currentTimeMillis(),
             packageName = packageName,
             eventType = eventType,
+            screenClassification = screenClassification,
             matchedRule = matchedRule,
             confidence = confidence,
             signals = signals,
-            decision = decision
+            decision = decision,
+            navigationAction = navigationAction,
+            sessionState = sessionState,
+            cooldownActive = cooldownActive
         )
         _events.update { current ->
             (listOf(entry) + current).take(MAX_EVENTS)

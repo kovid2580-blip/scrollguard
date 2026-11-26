@@ -247,7 +247,7 @@ fun BlockingOverlayScreen(
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xF00F172A)
+        color = Color(0xFF0B1120)
     ) {
         Box(
             modifier = Modifier

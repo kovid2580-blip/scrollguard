@@ -23,20 +23,42 @@ data class BlockDecision(
     val confidence: Float,
     val matchedSignals: List<String> = emptyList(),
     val messageTitle: String = "",
-    val messageBody: String = ""
+    val messageBody: String = "",
+    val entryPointsToSuppress: List<EntryPointTarget> = emptyList(),
+    val uiHealth: AdapterUiHealth = AdapterUiHealth.HEALTHY,
+    val adapterName: String = "",
+    val screenClassification: ScreenClassification = ScreenClassification.UNKNOWN,
+    val minConfidenceRequired: Float = 0.65f,
+    val failureReason: String? = null
 ) {
     companion object {
         fun allow(
             packageName: String,
             appName: String = packageName,
-            reason: BlockingReason = BlockingReason.NONE
+            reason: BlockingReason = BlockingReason.NONE,
+            contentCategory: ContentCategory = ContentCategory.FULL_APP,
+            confidence: Float = 0f,
+            matchedSignals: List<String> = emptyList(),
+            entryPointsToSuppress: List<EntryPointTarget> = emptyList(),
+            uiHealth: AdapterUiHealth = AdapterUiHealth.HEALTHY,
+            adapterName: String = "",
+            screenClassification: ScreenClassification = ScreenClassification.UNKNOWN,
+            minConfidenceRequired: Float = 0.65f,
+            failureReason: String? = null
         ) = BlockDecision(
             shouldBlock = false,
             packageName = packageName,
             appName = appName,
-            contentCategory = ContentCategory.FULL_APP,
+            contentCategory = contentCategory,
             reason = reason,
-            confidence = 0f
+            confidence = confidence,
+            matchedSignals = matchedSignals,
+            entryPointsToSuppress = entryPointsToSuppress,
+            uiHealth = uiHealth,
+            adapterName = adapterName,
+            screenClassification = screenClassification,
+            minConfidenceRequired = minConfidenceRequired,
+            failureReason = failureReason
         )
     }
 }

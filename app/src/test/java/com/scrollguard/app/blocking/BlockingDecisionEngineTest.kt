@@ -1,5 +1,11 @@
 package com.scrollguard.app.blocking
 
+import com.scrollguard.app.blocking.adapter.CustomRuleContentAdapter
+import com.scrollguard.app.blocking.adapter.FacebookContentAdapter
+import com.scrollguard.app.blocking.adapter.InstagramContentAdapter
+import com.scrollguard.app.blocking.adapter.SnapchatContentAdapter
+import com.scrollguard.app.blocking.adapter.TikTokContentAdapter
+import com.scrollguard.app.blocking.adapter.YouTubeContentAdapter
 import com.scrollguard.app.domain.model.BlockType
 import com.scrollguard.app.domain.model.BlockingRule
 import com.scrollguard.app.domain.model.ContentCategory
@@ -31,7 +37,7 @@ class BlockingDecisionEngineTest {
         detectionConfig = DetectionConfig(
             targetPackage = KnownPlatforms.INSTAGRAM_PACKAGE,
             category = ContentCategory.INSTAGRAM_REELS,
-            resourceIdKeywords = listOf("clips_viewer", "clips_tab", "clips_media", "clips_video_container"),
+            resourceIdKeywords = listOf("clips_viewer", "clips_media", "clips_video_container"),
             contentDescriptionKeywords = listOf("Reels", "Reel", "Clips"),
             textKeywords = listOf("Reels", "Original audio"),
             exclusionKeywords = listOf("Direct", "Messages", "Your story", "Edit profile", "Message..."),
@@ -50,7 +56,7 @@ class BlockingDecisionEngineTest {
         detectionConfig = DetectionConfig(
             targetPackage = KnownPlatforms.YOUTUBE_PACKAGE,
             category = ContentCategory.YOUTUBE_SHORTS,
-            resourceIdKeywords = listOf("reel_watch_fragment", "reel_recycler", "shorts_player", "pivot_shorts"),
+            resourceIdKeywords = listOf("reel_watch_fragment", "reel_recycler", "shorts_player"),
             contentDescriptionKeywords = listOf("Shorts", "Remix"),
             textKeywords = listOf("Shorts"),
             exclusionKeywords = listOf("Search YouTube", "Subscriptions", "Up next"),
@@ -78,12 +84,56 @@ class BlockingDecisionEngineTest {
         )
     )
 
+    private val tiktokRule = BlockingRule(
+        id = 4L,
+        packageName = KnownPlatforms.TIKTOK_PACKAGE,
+        appName = "TikTok",
+        blockType = BlockType.SELECTIVE_CONTENT,
+        contentType = ContentCategory.TIKTOK_SHORT_FORM,
+        enabled = true,
+        detectionConfig = DetectionConfig(
+            targetPackage = KnownPlatforms.TIKTOK_PACKAGE,
+            category = ContentCategory.TIKTOK_SHORT_FORM,
+            resourceIdKeywords = listOf("feed_pager", "vertical_view_pager"),
+            contentDescriptionKeywords = listOf("For You", "Following"),
+            textKeywords = listOf("For You", "Following"),
+            exclusionKeywords = listOf("Inbox", "Direct messages", "Profile"),
+            minConfidence = 0.70f,
+            isBuiltIn = true
+        )
+    )
+
+    private val snapchatSpotlightRule = BlockingRule(
+        id = 5L,
+        packageName = KnownPlatforms.SNAPCHAT_PACKAGE,
+        appName = "Snapchat",
+        blockType = BlockType.SELECTIVE_CONTENT,
+        contentType = ContentCategory.SNAPCHAT_SPOTLIGHT,
+        enabled = true,
+        detectionConfig = DetectionConfig(
+            targetPackage = KnownPlatforms.SNAPCHAT_PACKAGE,
+            category = ContentCategory.SNAPCHAT_SPOTLIGHT,
+            resourceIdKeywords = listOf("snap_spotlight", "spotlight_feed", "spotlight_player"),
+            contentDescriptionKeywords = listOf("Spotlight", "Spotlight tab"),
+            textKeywords = listOf("Spotlight"),
+            exclusionKeywords = listOf("Take a Snap", "Send a chat", "Chat"),
+            minConfidence = 0.65f,
+            isBuiltIn = true
+        )
+    )
+
     @Before
     fun setup() {
         val scheduleEvaluator = ScheduleEvaluator()
+        val evaluator = DetectionConfidenceEvaluator()
         val appEngine = AppDetectionEngine(scheduleEvaluator)
         val contentEngine = ContentDetectionEngine(
-            confidenceEvaluator = DetectionConfidenceEvaluator(),
+            instagramAdapter = InstagramContentAdapter(evaluator),
+            youtubeAdapter = YouTubeContentAdapter(evaluator),
+            facebookAdapter = FacebookContentAdapter(evaluator),
+            tiktokAdapter = TikTokContentAdapter(evaluator),
+            snapchatAdapter = SnapchatContentAdapter(evaluator),
+            customRuleAdapter = CustomRuleContentAdapter(evaluator),
             diagnosticsLogBuffer = DiagnosticsLogBuffer()
         )
         decisionEngine = BlockingDecisionEngine(appEngine, contentEngine, scheduleEvaluator)
@@ -483,5 +533,280 @@ class BlockingDecisionEngineTest {
             selfPackageName = selfPackage
         )
         assertFalse(decision.shouldBlock)
+    }
+
+    @Test
+    fun `instagram home exposes bounded reels entry point and preserves search`() {
+        val homeWithTabBounds = ScreenContext(
+            packageName = KnownPlatforms.INSTAGRAM_PACKAGE,
+            eventTypeName = "WINDOW_CONTENT_CHANGED",
+            screenWidthPx = 1080,
+            screenHeightPx = 2400,
+            nodes = listOf(
+                ScreenNodeSnapshot(viewIdResourceName = "com.instagram.android:id/feed_tab", isSelected = true),
+                ScreenNodeSnapshot(
+                    viewIdResourceName = "com.instagram.android:id/clips_tab",
+                    contentDescription = "Reels",
+                    isSelected = false,
+                    isClickable = true,
+                    boundsWidth = 200,
+                    boundsHeight = 140,
+                    boundsLeft = 640,
+                    boundsTop = 2160,
+                    boundsRight = 840,
+                    boundsBottom = 2300
+                )
+            )
+        )
+        val homeDecision = decisionEngine.decide(
+            screen = homeWithTabBounds,
+            rules = listOf(igReelsRule),
+            schedules = emptyList(),
+            strictModeState = StrictModeState(),
+            todayUsageMsByPackage = emptyMap(),
+            selfPackageName = selfPackage
+        )
+        assertFalse(homeDecision.shouldBlock)
+        assertEquals(1, homeDecision.entryPointsToSuppress.size)
+        assertEquals(ContentCategory.INSTAGRAM_REELS, homeDecision.entryPointsToSuppress.first().category)
+
+        val searchScreen = ScreenContext(
+            packageName = KnownPlatforms.INSTAGRAM_PACKAGE,
+            eventTypeName = "WINDOW_CONTENT_CHANGED",
+            nodes = listOf(
+                ScreenNodeSnapshot(viewIdResourceName = "com.instagram.android:id/action_bar_search_edit_text", text = "Reels")
+            )
+        )
+        val searchDecision = decisionEngine.decide(
+            screen = searchScreen,
+            rules = listOf(igReelsRule),
+            schedules = emptyList(),
+            strictModeState = StrictModeState(),
+            todayUsageMsByPackage = emptyMap(),
+            selfPackageName = selfPackage
+        )
+        assertFalse(searchDecision.shouldBlock)
+    }
+
+    @Test
+    fun `youtube preserves comments and playlists while detecting shorts tab entry point`() {
+        val watchWithComments = ScreenContext(
+            packageName = KnownPlatforms.YOUTUBE_PACKAGE,
+            eventTypeName = "WINDOW_CONTENT_CHANGED",
+            screenWidthPx = 1080,
+            screenHeightPx = 2400,
+            nodes = listOf(
+                ScreenNodeSnapshot(viewIdResourceName = "com.google.android.youtube:id/watch_player"),
+                ScreenNodeSnapshot(viewIdResourceName = "com.google.android.youtube:id/comments_entry_point", text = "Comments"),
+                ScreenNodeSnapshot(
+                    viewIdResourceName = "com.google.android.youtube:id/pivot_shorts",
+                    contentDescription = "Shorts",
+                    isSelected = false,
+                    boundsWidth = 210,
+                    boundsHeight = 130,
+                    boundsLeft = 220,
+                    boundsTop = 2170,
+                    boundsRight = 430,
+                    boundsBottom = 2300
+                )
+            )
+        )
+        val decision = decisionEngine.decide(
+            screen = watchWithComments,
+            rules = listOf(ytShortsRule),
+            schedules = emptyList(),
+            strictModeState = StrictModeState(),
+            todayUsageMsByPackage = emptyMap(),
+            selfPackageName = selfPackage
+        )
+        assertFalse(decision.shouldBlock)
+        assertEquals(1, decision.entryPointsToSuppress.size)
+        assertEquals(ContentCategory.YOUTUBE_SHORTS, decision.entryPointsToSuppress.first().category)
+    }
+
+    @Test
+    fun `messenger remains unaffected by facebook reels rule`() {
+        val messengerScreen = ScreenContext(
+            packageName = KnownPlatforms.MESSENGER_PACKAGE,
+            eventTypeName = "WINDOW_STATE_CHANGED",
+            nodes = listOf(ScreenNodeSnapshot(text = "Reels"))
+        )
+        val decision = decisionEngine.decide(
+            screen = messengerScreen,
+            rules = listOf(fbReelsRule),
+            schedules = emptyList(),
+            strictModeState = StrictModeState(),
+            todayUsageMsByPackage = emptyMap(),
+            selfPackageName = selfPackage
+        )
+        assertFalse(decision.shouldBlock)
+    }
+
+    @Test
+    fun `tiktok interrupts short video feed while preserving inbox when identifiable`() {
+        val tiktokFeed = ScreenContext(
+            packageName = KnownPlatforms.TIKTOK_PACKAGE,
+            eventTypeName = "WINDOW_STATE_CHANGED",
+            nodes = listOf(
+                ScreenNodeSnapshot(viewIdResourceName = "com.zhiliaoapp.musically:id/feed_pager"),
+                ScreenNodeSnapshot(text = "For You", isSelected = true),
+                ScreenNodeSnapshot(
+                    className = "androidx.viewpager2.widget.ViewPager2",
+                    isScrollable = true,
+                    boundsWidth = 1080,
+                    boundsHeight = 2200
+                )
+            )
+        )
+        val feedDecision = decisionEngine.decide(
+            screen = tiktokFeed,
+            rules = listOf(tiktokRule),
+            schedules = emptyList(),
+            strictModeState = StrictModeState(),
+            todayUsageMsByPackage = emptyMap(),
+            selfPackageName = selfPackage
+        )
+        assertTrue(feedDecision.shouldBlock)
+        assertEquals(ContentCategory.TIKTOK_SHORT_FORM, feedDecision.contentCategory)
+
+        val tiktokInbox = ScreenContext(
+            packageName = KnownPlatforms.TIKTOK_PACKAGE,
+            eventTypeName = "WINDOW_STATE_CHANGED",
+            nodes = listOf(
+                ScreenNodeSnapshot(text = "Inbox", isSelected = true),
+                ScreenNodeSnapshot(text = "Direct messages")
+            )
+        )
+        val inboxDecision = decisionEngine.decide(
+            screen = tiktokInbox,
+            rules = listOf(tiktokRule),
+            schedules = emptyList(),
+            strictModeState = StrictModeState(),
+            todayUsageMsByPackage = emptyMap(),
+            selfPackageName = selfPackage
+        )
+        assertFalse(inboxDecision.shouldBlock)
+    }
+
+    @Test
+    fun `snapchat blocks spotlight while preserving camera and chat`() {
+        val cameraScreen = ScreenContext(
+            packageName = KnownPlatforms.SNAPCHAT_PACKAGE,
+            eventTypeName = "WINDOW_STATE_CHANGED",
+            screenWidthPx = 1080,
+            screenHeightPx = 2400,
+            nodes = listOf(
+                ScreenNodeSnapshot(viewIdResourceName = "com.snapchat.android:id/camera_capture_button", contentDescription = "Take a Snap"),
+                ScreenNodeSnapshot(
+                    viewIdResourceName = "com.snapchat.android:id/spotlight_tab",
+                    contentDescription = "Spotlight",
+                    isSelected = false,
+                    boundsWidth = 190,
+                    boundsHeight = 130,
+                    boundsLeft = 840,
+                    boundsTop = 2180,
+                    boundsRight = 1030,
+                    boundsBottom = 2310
+                )
+            )
+        )
+        val cameraDecision = decisionEngine.decide(
+            screen = cameraScreen,
+            rules = listOf(snapchatSpotlightRule),
+            schedules = emptyList(),
+            strictModeState = StrictModeState(),
+            todayUsageMsByPackage = emptyMap(),
+            selfPackageName = selfPackage
+        )
+        assertFalse(cameraDecision.shouldBlock)
+        assertEquals(1, cameraDecision.entryPointsToSuppress.size)
+
+        val spotlightScreen = ScreenContext(
+            packageName = KnownPlatforms.SNAPCHAT_PACKAGE,
+            eventTypeName = "WINDOW_STATE_CHANGED",
+            nodes = listOf(
+                ScreenNodeSnapshot(viewIdResourceName = "com.snapchat.android:id/snap_spotlight_feed"),
+                ScreenNodeSnapshot(contentDescription = "Spotlight", isSelected = true),
+                ScreenNodeSnapshot(
+                    className = "androidx.viewpager2.widget.ViewPager2",
+                    isScrollable = true,
+                    boundsWidth = 1080,
+                    boundsHeight = 2200
+                )
+            )
+        )
+        val spotlightDecision = decisionEngine.decide(
+            screen = spotlightScreen,
+            rules = listOf(snapchatSpotlightRule),
+            schedules = emptyList(),
+            strictModeState = StrictModeState(),
+            todayUsageMsByPackage = emptyMap(),
+            selfPackageName = selfPackage
+        )
+        assertTrue(spotlightDecision.shouldBlock)
+        assertEquals(ContentCategory.SNAPCHAT_SPOTLIGHT, spotlightDecision.contentCategory)
+    }
+
+    @Test
+    fun `unselected nav tabs alone never cause false positive blocking`() {
+        val igGenericScreenWithTabs = ScreenContext(
+            packageName = KnownPlatforms.INSTAGRAM_PACKAGE,
+            eventTypeName = "WINDOW_CONTENT_CHANGED",
+            screenWidthPx = 1080,
+            screenHeightPx = 2400,
+            nodes = listOf(
+                ScreenNodeSnapshot(
+                    viewIdResourceName = "com.instagram.android:id/clips_tab",
+                    contentDescription = "Reels",
+                    isSelected = false,
+                    boundsWidth = 200,
+                    boundsHeight = 140,
+                    boundsLeft = 640,
+                    boundsTop = 2160,
+                    boundsRight = 840,
+                    boundsBottom = 2300
+                )
+            )
+        )
+        val igDecision = decisionEngine.decide(
+            screen = igGenericScreenWithTabs,
+            rules = listOf(igReelsRule),
+            schedules = emptyList(),
+            strictModeState = StrictModeState(),
+            todayUsageMsByPackage = emptyMap(),
+            selfPackageName = selfPackage
+        )
+        assertFalse(igDecision.shouldBlock)
+        assertEquals(1, igDecision.entryPointsToSuppress.size)
+
+        val ytGenericScreenWithTabs = ScreenContext(
+            packageName = KnownPlatforms.YOUTUBE_PACKAGE,
+            eventTypeName = "WINDOW_CONTENT_CHANGED",
+            screenWidthPx = 1080,
+            screenHeightPx = 2400,
+            nodes = listOf(
+                ScreenNodeSnapshot(
+                    viewIdResourceName = "com.google.android.youtube:id/pivot_shorts",
+                    contentDescription = "Shorts",
+                    isSelected = false,
+                    boundsWidth = 210,
+                    boundsHeight = 130,
+                    boundsLeft = 220,
+                    boundsTop = 2170,
+                    boundsRight = 430,
+                    boundsBottom = 2300
+                )
+            )
+        )
+        val ytDecision = decisionEngine.decide(
+            screen = ytGenericScreenWithTabs,
+            rules = listOf(ytShortsRule),
+            schedules = emptyList(),
+            strictModeState = StrictModeState(),
+            todayUsageMsByPackage = emptyMap(),
+            selfPackageName = selfPackage
+        )
+        assertFalse(ytDecision.shouldBlock)
+        assertEquals(1, ytDecision.entryPointsToSuppress.size)
     }
 }

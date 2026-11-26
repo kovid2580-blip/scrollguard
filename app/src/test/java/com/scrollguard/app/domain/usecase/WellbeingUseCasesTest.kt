@@ -79,7 +79,7 @@ class WellbeingUseCasesTest {
         val result = backupRestoreUseCase.importConfigurationJson(exportedJson)
         assertTrue(result.isSuccess)
         val (restoredRules, restoredSchedules) = result.getOrThrow()
-        assertEquals(5, restoredRules)
+        assertEquals(7, restoredRules)
         assertEquals(1, restoredSchedules)
         assertEquals(25, ruleRepo.getRulesForPackage("com.reddit.frontpage").first().dailyLimitMinutes)
     }

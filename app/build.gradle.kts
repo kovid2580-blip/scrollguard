@@ -105,6 +105,10 @@ android {
             isReturnDefaultValues = true
         }
     }
+
+    lint {
+        checkTestSources = false
+    }
 }
 
 ksp {

@@ -87,11 +87,31 @@ class BlockingDecisionEngine @Inject constructor(
                 confidence = contentMatch.confidence,
                 matchedSignals = contentMatch.matchedSignals,
                 messageTitle = title,
-                messageBody = body
+                messageBody = body,
+                entryPointsToSuppress = emptyList(),
+                uiHealth = contentMatch.uiHealth,
+                adapterName = contentMatch.ruleName,
+                screenClassification = contentMatch.screenClassification,
+                minConfidenceRequired = matchedRule?.detectionConfig?.minConfidence ?: 0.65f,
+                failureReason = contentMatch.failureReason
             )
         }
 
-        return BlockDecision.allow(pkg)
+        val unmatchedRule = contentMatch?.let { cm ->
+            candidateSelectiveRules.firstOrNull { it.contentType == cm.category }
+        }
+        return BlockDecision.allow(
+            packageName = pkg,
+            contentCategory = contentMatch?.category ?: ContentCategory.FULL_APP,
+            confidence = contentMatch?.confidence ?: 0f,
+            matchedSignals = contentMatch?.matchedSignals ?: emptyList(),
+            entryPointsToSuppress = contentMatch?.entryPoints ?: emptyList(),
+            uiHealth = contentMatch?.uiHealth ?: AdapterUiHealth.HEALTHY,
+            adapterName = contentMatch?.ruleName ?: "",
+            screenClassification = contentMatch?.screenClassification ?: ScreenClassification.UNKNOWN,
+            minConfidenceRequired = unmatchedRule?.detectionConfig?.minConfidence ?: 0.65f,
+            failureReason = contentMatch?.failureReason
+        )
     }
 
     private fun buildSelectiveMessage(appName: String, category: ContentCategory): Pair<String, String> {
@@ -102,15 +122,23 @@ class BlockingDecisionEngine @Inject constructor(
 
             ContentCategory.INSTAGRAM_EXPLORE ->
                 "Instagram Explore is blocked." to
-                    "Stay intentional on Instagram. Your feed, Stories, and DMs remain available."
+                    "Stay intentional on Instagram. Your feed, Stories, Search, and DMs remain available."
 
             ContentCategory.YOUTUBE_SHORTS ->
                 "YouTube Shorts is blocked." to
-                    "You came to YouTube with a purpose. Standard videos, Search, and Subscriptions stay open."
+                    "You came to YouTube with a purpose. Standard videos, Search, Subscriptions, Playlists, and Comments stay open."
 
             ContentCategory.FACEBOOK_REELS ->
                 "Facebook Reels is blocked." to
-                    "Short-form Reels are paused so you can stay in control of your attention."
+                    "Short-form Reels are paused while your Feed, Groups, Pages, and Messenger stay available."
+
+            ContentCategory.TIKTOK_SHORT_FORM ->
+                "TikTok short-video feed is blocked." to
+                    "ScrollGuard interrupted TikTok's continuous short-video feed so you can take back your time."
+
+            ContentCategory.SNAPCHAT_SPOTLIGHT ->
+                "Snapchat Spotlight is blocked." to
+                    "Spotlight is paused while Messaging and ordinary Camera functionality stay open."
 
             else ->
                 "${category.displayName} in $appName is blocked." to
